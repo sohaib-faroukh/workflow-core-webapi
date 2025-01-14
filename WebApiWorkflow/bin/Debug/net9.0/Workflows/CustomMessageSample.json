@@ -1,0 +1,21 @@
+{
+  "Id": "CustomMessageSample",
+  "Version": 1,
+  "Steps": [
+    {
+      "Id": "Hello",
+      "StepType": "WebApiWorkflow.Steps.CustomMessage, WebApiWorkflow",
+      "Inputs":{
+        "Message": "\"Hello\""
+      },
+      "NextStepId": "Bye"
+    },
+    {
+      "Id": "Bye",
+      "StepType": "WebApiWorkflow.Steps.CustomMessage, WebApiWorkflow",
+      "Inputs":{
+        "Message": "\"Bye\""
+      }
+    }
+  ]
+}

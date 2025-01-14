@@ -1,0 +1,8 @@
+Id: ChangeCustomerInformation
+Version: 1
+Steps:
+- Id: UpdateCustomerInformationStep
+  StepType: WebApiWorkflow.Steps.HttpRequestStep, WebApiWorkflow
+  Inputs:
+    Url: '"http://localhost:9001/v1/customers/profile/66ddfdb97765ea0008d15e83"'
+    Method: '"GET"'

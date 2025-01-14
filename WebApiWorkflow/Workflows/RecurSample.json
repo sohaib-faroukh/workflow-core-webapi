@@ -1,0 +1,24 @@
+{
+  "Id": "RecurSample",
+  "Version": 1,
+  "Steps": [
+    {
+      "Id": "RecurringStep",
+      "StepType": "WorkflowCore.Primitives.Recur, WorkflowCore",
+      "Inputs": {
+        "Interval": "TimeSpan.FromSeconds(2)"
+      },
+      "Do": [
+        [
+          {
+            "Id": "M1",
+            "StepType": "WebApiWorkflow.Steps.CustomMessage, WebApiWorkflow",
+            "Inputs": {
+              "Message": "\"1 Recurring message \" + DateTime.Now.ToString()"
+            }
+          }
+        ]
+      ]
+    }
+  ]
+}

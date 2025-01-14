@@ -1,0 +1,153 @@
+[
+  {
+    "Id": "CheckCustomerContracts",
+    "StepType": "If",
+    "Inputs": {
+      "Condition": "data.has_contracts"
+    },
+    "Do": [
+      [
+        {
+          "Id": "GetContracts",
+          "StepType": "MyNamespace.HttpRequestStep, WebApiWorkflow",
+          "Inputs": {
+            "Url": "\"http://localhost:3030/v1/customers/\" + data.customer_id + \"/contracts\"",
+            "Method": "\"GET\"",
+            "QueryParams": {
+              "filter": {
+                "customer_id": "data.customer_id",
+                "has_all_data": "true"
+              }
+            }
+          },
+          "Outputs": {
+            "Contracts": "step.Response"
+          },
+          "NextStepId": "CheckCountryOrLegalFormChange"
+        }
+      ]
+    ],
+    "Else": {
+      "NextStepId": "CheckTenders"
+    }
+  },
+  {
+    "Id": "CheckCountryOrLegalFormChange",
+    "StepType": "If",
+    "Inputs": {
+      "Condition": "data.to.address.country != data.from.address.country || data.to.registration.legal_form != data.from.registration.legal_form"
+    },
+    "Do": [
+      [
+        {
+          "Id": "PolicyChangeWorkflowLoop",
+          "StepType": "WorkflowCore.Primitives.While, WorkflowCore",
+          "Inputs": {
+            "Condition": "data.contractIndex < data.contracts.Count"
+          },
+          "Do": [
+            [
+              {
+                "Id": "SendPolicyChangeRequest",
+                "StepType": "MyNamespace.SendSqsMessageStep, WebApiWorkflow",
+                "Inputs": {
+                  "QueueUrl": "\"http://localhost:4566/000000000000/main-gears.fifo\"",
+                  "MessagePayload": {
+                    "workflow_id": "\"review_policy_change_request_by_underwriter\"",
+                    "contract_id": "data.contracts[data.contractIndex]._id",
+                    "customer_change": {
+                      "from": "data.from",
+                      "to": "data.to"
+                    }
+                  }
+                },
+                "NextStepId": "IncrementContractIndex"
+              },
+              {
+                "Id": "IncrementContractIndex",
+                "StepType": "WorkflowCore.Primitives.Increment, WorkflowCore",
+                "Inputs": {
+                  "Value": 1
+                },
+                "Outputs": {
+                  "Data.contractIndex": "step.Output"
+                }
+              }
+            ]
+          ]
+        }
+      ]
+    ],
+    "Else": {
+      "NextStepId": "PolicyCreationLoop"
+    }
+  },
+  {
+    "Id": "PolicyCreationLoop",
+    "StepType": "WorkflowCore.Primitives.While, WorkflowCore",
+    "Inputs": {
+      "Condition": "data.contractIndex < data.contracts.Count"
+    },
+    "Do": [
+      [
+        {
+          "Id": "CreatePolicyForContract",
+          "StepType": "MyNamespace.HttpRequestStep, WebApiWorkflow",
+          "Inputs": {
+            "Url": "\"http://localhost:3030/v1/policies\"",
+            "Method": "\"POST\"",
+            "Payload": {
+              "contract_id": "data.contracts[data.contractIndex]._id",
+              "issuance_reason": "\"Customer Information Change\""
+            }
+          },
+          "NextStepId": "IncrementContractIndex"
+        },
+        {
+          "Id": "IncrementContractIndex",
+          "StepType": "WorkflowCore.Primitives.Increment, WorkflowCore",
+          "Inputs": {
+            "Value": 1
+          },
+          "Outputs": {
+            "Data.contractIndex": "step.Output"
+          }
+        }
+      ]
+    ],
+    "NextStepId": "CheckTenders"
+  },
+  {
+    "Id": "CheckTenders",
+    "StepType": "If",
+    "Inputs": {
+      "Condition": "data.has_tenders && data.cancel_tenders"
+    },
+    "Do": [
+      [
+        {
+          "Id": "CancelTenders",
+          "StepType": "MyNamespace.SendSnsMessageStep, WebApiWorkflow",
+          "Inputs": {
+            "TopicArn": "\"arn:aws:sns:eu-central-1:000000000000:tender\"",
+            "MessagePayload": {
+              "tender_ids": "data.tenders_ids",
+              "closing_reason": "\"Customer Information Changed\""
+            }
+          },
+          "NextStepId": "Terminate"
+        }
+      ]
+    ],
+    "Else": {
+      "NextStepId": "Terminate"
+    }
+  },
+  {
+    "Id": "Terminate",
+    "StepType": "MyNamespace.PrintMessageStep, WebApiWorkflow",
+    "Inputs": {
+      "Message": "\"DONE!\""
+    }
+  }
+]
